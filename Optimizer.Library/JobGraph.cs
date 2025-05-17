@@ -9,7 +9,8 @@ namespace Optimizer.Library
     public enum DependencyType { Tree, Graph, None }
     public class JobGraph
     {
-        private readonly Dictionary<Job, List<Job>> _dependencies;
+        public Dictionary<Job, List<Job>> _dependencies;
+        //private readonly Dictionary<Job, List<Job>> _dependencies;
         public List<Job> Jobs { get; }
         public DependencyType DependencyType { get; private set; }
 
@@ -44,30 +45,41 @@ namespace Optimizer.Library
         {
             return GetDependencies(job);
         }
-
         public bool IsTreeToRoot()
         {
-            var roots = Jobs.Where(j => !_dependencies.ContainsKey(j) || !_dependencies[j].Any()).ToList();
-            if (roots.Count != 1) return false;
+            // Находим все корни (работы, от которых никто не зависит)
+            var roots = GetRoots();
 
-            var visited = new HashSet<Job>();
-            var queue = new Queue<Job>();
-            queue.Enqueue(roots[0]);
-
-            while (queue.Any())
+            // Для каждого корня проверяем, что все остальные работы ведут к нему
+            foreach (var root in roots)
             {
-                var current = queue.Dequeue();
-                if (visited.Contains(current)) return false;
+                var visited = new HashSet<Job>();
+                var queue = new Queue<Job>();
+                queue.Enqueue(root);
+                visited.Add(root);
 
-                visited.Add(current);
-
-                foreach (var dep in _dependencies.Where(kv => kv.Value.Contains(current)))
+                while (queue.Count > 0)
                 {
-                    queue.Enqueue(dep.Key);
+                    var current = queue.Dequeue();
+
+                    // Идем в обратном направлении - от корня к зависимостям
+                    foreach (var dependent in Jobs.Where(j => GetDependencies(current).Contains(j)))
+                    {
+                        if (visited.Contains(dependent))
+                            return false; // Нашли цикл
+
+                        visited.Add(dependent);
+                        queue.Enqueue(dependent);
+                    }
                 }
+
+                // Если все работы посещены - это корректное дерево
+                if (visited.Count == Jobs.Count)
+                    return true;
             }
 
-            return visited.Count == Jobs.Count;
+            // Ни одно из деревьев не покрыло все работы
+            return false;
         }
 
         public void RemoveTransitiveEdges()
@@ -118,9 +130,9 @@ namespace Optimizer.Library
             }
         }
 
-        public List<Job> GetSources()
+        public List<Job> GetRoots()
         {
-            return Jobs.Where(j => !_dependencies.ContainsKey(j) || !_dependencies[j].Any()).ToList();
+            return Jobs.Where(j => !Jobs.Any(other => GetDependencies(other).Contains(j))).ToList();
         }
 
         public List<Job> GetJobsWithAllDependenciesCompleted(IEnumerable<Job> completedJobs)
