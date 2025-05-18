@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -133,6 +134,21 @@ namespace Optimizer.Library
         public List<Job> GetRoots()
         {
             return Jobs.Where(j => !Jobs.Any(other => GetDependencies(other).Contains(j))).ToList();
+        }
+
+        public List<Job> GetToAssign(HashSet<Job> jobs, Dictionary<Job, int> dict)
+        {
+            var jobsToAssign = new List<Job>();
+            // Находим работы, все зависимости которых уже имеют приоритет
+            foreach (var job in jobs)
+            {
+                var dependencies = Jobs.Where(j => GetDependencies(j).Contains(job)).ToList();
+                if (dependencies.All(d => dict.ContainsKey(d)))
+                {
+                    jobsToAssign.Add(job);
+                }
+            }
+            return jobsToAssign;
         }
 
         public List<Job> GetJobsWithAllDependenciesCompleted(IEnumerable<Job> completedJobs)
