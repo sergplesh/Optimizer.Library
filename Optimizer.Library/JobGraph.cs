@@ -175,5 +175,56 @@ namespace Optimizer.Library
                 DependencyType = DependencyType.None;
             }
         }
+
+        public bool HasCycle()
+        {
+            var visited = new HashSet<Job>();
+            var recursionStack = new HashSet<Job>();
+
+            foreach (var job in Jobs)
+            {
+                if (HasCycleDFS(job, visited, recursionStack))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool HasCycleDFS(Job currentJob, HashSet<Job> visited, HashSet<Job> recursionStack)
+        {
+            // Если уже в стеке рекурсии - найден цикл
+            if (recursionStack.Contains(currentJob))
+            {
+                return true;
+            }
+
+            // Если уже посещали эту вершину и циклов не нашли - можно пропустить
+            if (visited.Contains(currentJob))
+            {
+                return false;
+            }
+
+            // Добавляем в посещенные и в стек рекурсии
+            visited.Add(currentJob);
+            recursionStack.Add(currentJob);
+
+            // Проверяем всех соседей (зависимости)
+            foreach (var dependentJob in _dependencies
+                .Where(kv => kv.Value.Contains(currentJob))
+                .Select(kv => kv.Key))
+            {
+                if (HasCycleDFS(dependentJob, visited, recursionStack))
+                {
+                    return true;
+                }
+            }
+
+            // Убираем из стека рекурсии перед возвратом
+            recursionStack.Remove(currentJob);
+
+            return false;
+        }
     }
 }
